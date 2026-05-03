@@ -1,0 +1,88 @@
+/* Common Styles for Voice Agent Parent Component */
+
+/* Session Initializing Overlay */
+.session-init-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.session-init-content {
+    border-radius: 16px;
+    padding: 2.5rem 2.5rem 2rem 2.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.2rem;
+    min-width: 260px;
+}
+
+.session-init-spinner {
+    border: 5px solid #e3f3ff;
+    border-top: 5px solid #340ca1;
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    animation: spin 1s linear infinite;
+    margin-bottom: 0.5rem;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.session-init-message {
+    font-size: 1.15rem;
+    color: #ffffff;
+    text-align: center;
+}
+
+/* Settings Modal */
+.settings-modal {
+    position: absolute;
+    top: 53px;
+    right: 9px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 1px 6px rgb(0 0 0 / 15%);
+    padding: 1rem 1.2rem;
+    z-index: 2000;
+    min-width: 180px;
+    display: flex;
+    flex-direction: column;
+}
+
+.settings-modal label {
+    font-size: 1rem;
+    color: #222;
+    margin-bottom: 0.2rem;
+}
+
+.lang-select {
+    width: 100%;
+    padding: 0.5rem 0.7rem;
+    border-radius: 6px;
+    border: 1px solid #340ca1;
+    font-size: 1rem;
+    color: #222;
+    background: #f4f6fb;
+    outline: none;
+    margin-bottom: 0.2rem;
+}
+
+.lang-select:focus {
+    border-color: #0d5aa7;
+}

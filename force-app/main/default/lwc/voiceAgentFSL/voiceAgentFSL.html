@@ -1,0 +1,21 @@
+<template>
+
+    <template if:true={isSessionInitializing}>
+        <div class="session-init-overlay">
+            <div class="session-init-content">
+                <div class="session-init-spinner"></div>
+                <div class="session-init-message">{sessionInitMessage}</div>
+            </div>
+        </div>
+    </template>
+
+    <c-voice-agent-ios-f-s-l 
+        session-id={sessionId}
+        user-first-name={userFirstName}
+        selected-language={selectedLanguage}
+        device-type={deviceType}
+        greeting-voices={greetingVoices}
+        voice-gender-getter={getVoiceGender}
+        user-id ={userId}>
+    </c-voice-agent-ios-f-s-l>
+</template>
