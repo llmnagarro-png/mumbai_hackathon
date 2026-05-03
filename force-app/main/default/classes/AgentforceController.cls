@@ -36,7 +36,6 @@ public with sharing class AgentforceController {
     String userMessage
     ) {
         try {
-            // ✅ Convert base64 to Blob and use ImageAnalyzeUtil
             Blob imageBlob = null;
             String apiResponse = null;
             String finalMessage = 'User said: ' + userMessage;
@@ -48,17 +47,15 @@ public with sharing class AgentforceController {
                 System.debug('API Response: ' + apiResponse);
             }
             
-            // Step 2 - Pass response to Agentforce
             Invocable.Action action = Invocable.Action.createCustomAction(
-                // 'generateAiAgentResponse', 'Agentforce_Service_Agent'
             'generateAiAgentResponse', 'Consumer_Goods_Specialist_Agent'
                 );
             
             if(string.isNotBlank(apiResponse))
                 finalMessage = 'Can you please convert this JSON into a clear, concise, and human-readable customer response, presented as a short summary in a casual and natural tone: ' + apiResponse;
-            
+
             System.debug('final message: '+finalMessage);
-            
+
             action.setInvocationParameter('userMessage', finalMessage);
             
             if (String.isNotBlank(sessionId)) {
@@ -81,7 +78,6 @@ public with sharing class AgentforceController {
                 agentResponse = 'Sorry, agent is not available at this moment.';
             }
             
-            // Step 3 - TTS
             String ttsAudio = '';
             try {
                 ttsAudio = getTTSBase64Audio(stripUrlsForTTS(agentResponse), languageCode, voiceGender, 'MP3');
@@ -102,7 +98,6 @@ public with sharing class AgentforceController {
         }
     }
     
-    // Above method is new
     @AuraEnabled(cacheable=false)
     public static Map<String, String> callAgentforce(String userMessage, String sessionId, String languageCode, String voiceGender, String deviceType,String userId) {
         String agentResponse = '';
@@ -143,10 +138,8 @@ public with sharing class AgentforceController {
     
     @AuraEnabled(cacheable=false)
     public static String getTTSBase64Audio(String text, String languageCode, String voiceName, String audioEncoding) {
-        // Your Google Cloud API key
         String apiKey = 'AIzaSyD8SZI6k5yjIIxkvYPYRrR01bWCKav9pVo';
         
-        // Log the TTS request for debugging
         System.debug('TTS Request - Text: ' + text + ', Language: ' + languageCode + ', Voice: ' + voiceName);
         
         HttpRequest req = new HttpRequest();
@@ -201,7 +194,6 @@ public with sharing class AgentforceController {
             String phone = matcher.group();
             String spacedPhone = '';
             
-            // Add space between each digit
             for (Integer i = 0; i < phone.length(); i++) {
                 spacedPhone += phone.substring(i, i + 1);
                 if (i < phone.length() - 1) {

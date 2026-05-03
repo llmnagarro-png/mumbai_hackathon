@@ -9,7 +9,6 @@ public without sharing class GetVisitPlan {
             return responseList;
         }
 
-        // Collect all phone numbers
         Set<String> phoneNumbers = new Set<String>();
         for (RequestWrapper req : reqList) {
             if (req.ContactNumber != null) {
@@ -21,14 +20,13 @@ public without sharing class GetVisitPlan {
             return responseList;
         }
 
-        // Fetch Current Logged in User
         User currentUser = [Select Id, Email From User Where Id = '005bm00000O8qV3AAJ'];
         // Fetch Contacts
         Map<String, Id> phoneToContactMap = new Map<String, Id>();
         for (Contact con : [
             SELECT Id, Phone 
             FROM Contact 
-            WHERE Email = :currentUser.Email			//Phone = '7419023539' //Phone IN :phoneNumbers //Phone = '7419023539'//
+            WHERE Email = :currentUser.Email
         ]) {
             phoneToContactMap.put(con.Phone, con.Id);
         }
@@ -37,14 +35,12 @@ public without sharing class GetVisitPlan {
             return responseList;
         }
 
-        // Fetch Visits
         List<Visit> visits = [
             SELECT Id, Status, VisitPriority, VisitorId,Account_Name__c,Location__c,Store_Name__c
             FROM Visit 
             WHERE VisitorId IN :phoneToContactMap.values()
         ];
 
-        // Prepare response
         ResponseWrapper resWrapper = new ResponseWrapper();
         resWrapper.visits = new List<VisitData>();
         
@@ -61,20 +57,6 @@ public without sharing class GetVisitPlan {
         responseList.add(resWrapper);
         return responseList;
     }
-    
-    /*public class ResponseWrapper {
-        @InvocableVariable
-        public String status;
-
-        @InvocableVariable
-        public String priority;
-        
-        @InvocableVariable
-        public String Location;
-        
-        @InvocableVariable
-        public String Name;
-    }*/
     
     public class VisitData {
         @InvocableVariable public String status;

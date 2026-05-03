@@ -32,25 +32,20 @@ export default class VoiceAgentFSL extends LightningElement {
     }
 
     get devicePlatform() {
-        // Cache user agent for performance
         const userAgent = navigator.userAgent || navigator.vendor || window.opera;
         
-        // Check for iOS devices first (most specific)
         if (/iPad|iPhone|iPod/.test(userAgent)) {
             return 'IOS';
         }
         
-        // Check for Android devices
         if (/Android/.test(userAgent)) {
             return 'ANDROID';
         }
         
-        // Check for other mobile devices
         if (/Mobile|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(userAgent)) {
             return 'MOBILE';
         }
         
-        // Default to desktop
         return 'DESKTOP';
     }
 
@@ -89,15 +84,10 @@ export default class VoiceAgentFSL extends LightningElement {
         };
     }
 
-    /*connectedCallback() {
-        loadStyle(this, icomoon + '/style.css');
-        this.initializeSession();
-    }*/
     connectedCallback() {
     loadStyle(this, icomoon + '/style.css');
     this.initializeSession();
     
-    // Suppress unrelated Copilot sidebar errors
     window.addEventListener('error', (event) => {
         if (event.message?.includes('copilot') || 
             event.message?.includes('Refresh the conversation')) {

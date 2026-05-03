@@ -1,8 +1,8 @@
 @RestResource(urlMapping='/twilio/webhook/*')
 global without sharing class TwilioWhatsAppWebhook {
 
-    private static final String TWILIO_ACCOUNT_SID = 'ACd849133bf5e9ae3424aa3238432c2429';//Vaibhav Twilio :-'ACea900a7c53c8fe2929729e6878a60499';
-    private static final String TWILIO_AUTH_TOKEN = 'a690f9df4bd3108ef268eed859fe7fa0'; //Vaibhav Twilio :- '6d5e0f6d3d4bf0d743e87dd1d9e94602';
+    private static final String TWILIO_ACCOUNT_SID = 'ACd849133bf5e9ae3424aa3238432c2429';
+    private static final String TWILIO_AUTH_TOKEN = 'a690f9df4bd3108ef268eed859fe7fa0';
     private static final String TWILIO_API_BASE = 'https://api.twilio.com/2010-04-01/Accounts';
     private static final String ANALYZE_API_URL = 'https://dmart-extraction.vercel.app/analyze';
 
@@ -18,7 +18,6 @@ global without sharing class TwilioWhatsAppWebhook {
             String bodyMsg      = params.get('Body');
             String messageSid   = params.get('MessageSid');
 
-            // Show typing indicator on the WhatsApp user's device while we process the request
             sendTypingIndicator(messageSid);
 
             String fromINRNum = extractPhoneNumber(fromNum);
@@ -45,7 +44,7 @@ global without sharing class TwilioWhatsAppWebhook {
                 String contentType = params.get('MediaContentType0');
 
                 String apiResponse = processImageAndStore(mediaUrl, contentType, fromNum);
-                System.debug('====API RESPONSE====' + apiResponse); // ADD THIS
+                System.debug('====API RESPONSE====' + apiResponse);
 
                 Map<String, String> copilotResponse =
                     interactWithCopilot(
@@ -82,12 +81,6 @@ global without sharing class TwilioWhatsAppWebhook {
         return 'Twilio Webhook Working';
     }
 
-    // ==========================================
-    // Send Typing Indicator via Twilio Indicators API
-    // Sends a "typing..." signal on the WhatsApp user's device
-    // while the agent is generating a response.
-    // Requires the MessageSid of the incoming message.
-    // ==========================================
     public static void sendTypingIndicator(String messageSid) {
         if (String.isBlank(messageSid)) {
             System.debug('sendTypingIndicator: MessageSid is blank, skipping.');
@@ -117,9 +110,6 @@ global without sharing class TwilioWhatsAppWebhook {
         }
     }
 
-    // ==========================================
-    // Download image -> Convert base64 -> Call API -> Store response
-    // ==========================================
     public static String processImageAndStore(String mediaUrl, String contentType, String fromNum) {
     try {
         Http http = new Http();
@@ -198,10 +188,7 @@ global without sharing class TwilioWhatsAppWebhook {
         return '{"error":"' + e.getMessage() + ' at line ' + e.getLineNumber() + '"}';
     }
 }
-    // ==========================================
-    // Send WhatsApp Message
-    // ==========================================
-   @future(callout=true)
+    @future(callout=true)
     public static void sendWhatsAppMessage(String fromNumber, String toNumber, String message) {
 
         String endpoint = TWILIO_API_BASE + '/' + TWILIO_ACCOUNT_SID + '/Messages.json';
@@ -229,9 +216,6 @@ global without sharing class TwilioWhatsAppWebhook {
         System.debug('Twilio Response: ' + res.getBody());
     }
 
-    // ==========================================
-    // Agentforce
-    // ==========================================
     private static Map<String, String> interactWithCopilot(String userMessage, String sessionId,String fromNum) {
 
         Invocable.Action action = Invocable.Action.createCustomAction(
@@ -336,13 +320,10 @@ global without sharing class TwilioWhatsAppWebhook {
     private static String extractPhoneNumber(String fromNum) {
     if (String.isBlank(fromNum)) return null;
 
-    // Remove 'whatsapp:' prefix if present
     fromNum = fromNum.replace('whatsapp:', '');
 
-    // Keep only digits
     String digitsOnly = fromNum.replaceAll('[^0-9]', '');
 
-    // If number is longer than 10 digits, take last 10 digits
     if (digitsOnly.length() > 10) {
         return digitsOnly.substring(digitsOnly.length() - 10);
     }
@@ -350,227 +331,3 @@ global without sharing class TwilioWhatsAppWebhook {
     return digitsOnly;
 }
 }
-/*@RestResource(urlMapping='/twilio/webhook/*')
-global without sharing class TwilioWhatsAppWebhook {
-    private static final String TWILIO_ACCOUNT_SID = 'ACea900a7c53c8fe2929729e6878a60499';
-    private static final String TWILIO_AUTH_TOKEN = '6d5e0f6d3d4bf0d743e87dd1d9e94602';
-    private static final String TWILIO_API_BASE = 'https://api.twilio.com/2010-04-01/Accounts';
-    private static final String CACHE_PARTITION = 'local.WhatsappChatSession';
-    private static final Integer CACHE_TTL = 86400;
-    private static Cache.OrgPartition orgPart = Cache.Org.getPartition(CACHE_PARTITION);
-    private static String fromNum;
-
-    private static final Set<String> ageProofDocSet = new Set<String>{
-        'pan card', 'aadhaar card', 'passport', 'dl', 'voter id'
-    };
-
-    private static final Set<String> addressProofDocSet = new Set<String>{
-        'valid rental agreement', 'pension payment order', 'utility bills',
-        'valid rental agreement with landlord', 'letter of allotment of accomodation',
-        'passbook', 'others'
-    };
-
-    private static final Set<String> incomeProofDocSet = new Set<String>{
-        'bank statement (6 months)', 'payslip', 'itr'
-    };
-
-    @HttpPost
-    global static void handleIncomingMessage() {
-        try {
-            RestRequest req = RestContext.request;
-            Map<String, String> params = req.params;
-
-            fromNum = params.get('From');
-            String toNum = params.get('To');
-            String userMessage = params.get('Body');
-            Integer numMedia = Integer.valueOf(params.get('NumMedia'));
-            List<Map<String, String>> mediaList = new List<Map<String, String>>();
-
-            if (numMedia > 0) {
-                for (Integer i = 0; i < numMedia; i++) {
-                    String mediaUrl = params.get('MediaUrl' + i);
-                    String contentType = params.get('MediaContentType' + i);
-                    mediaList.add(new Map<String, String>{
-                        'url' => mediaUrl,
-                        'type' => contentType
-                    });
-                }
-            }
-
-            String customerProvidedPhone = extractCustomerPhone(userMessage);
-            System.debug('customerProvidedPhone ' + customerProvidedPhone);
-            Id strLeadId;
-            if (customerProvidedPhone != null) {
-                List<Lead> getLead = [SELECT Id, Phone FROM Lead WHERE Phone = :customerProvidedPhone ORDER BY CreatedDate DESC LIMIT 1];
-                if (!getLead.isEmpty()) {
-                    strLeadId = getLead[0].Id;
-                }
-            }
-
-            for (Integer i = 0; i < numMedia; i++) {
-                String mediaUrl = params.get('MediaUrl' + i);
-                String contentType = params.get('MediaContentType' + i);
-                String fileName = 'WhatsApp_Media_' + DateTime.now().getTime() + '_' + i;
-                saveMediaToRecord(mediaUrl, contentType, fileName, strLeadId);
-                userMessage = 'done';
-            }
-
-            String cacheKey = 'session' + fromNum?.replace('whatsapp:+','');
-            Map<String, String> sessionData = (Map<String, String>) orgPart.get(cacheKey);
-
-            String sessionId = (sessionData != null) ? sessionData.get('sessionId') : null;
-            Map<String, String> copilotResponse = interactWithCopilot(userMessage, sessionId);
-
-            sessionData = new Map<String, String>{
-                'sessionId' => copilotResponse.get('sessionId'),
-                'lastResponse' => copilotResponse.get('agentResponse'),
-                'lastUsermsg' => userMessage?.toLowerCase()
-            };
-            orgPart.put(cacheKey, sessionData, CACHE_TTL);
-            sendWhatsAppMessage(toNum, fromNum, copilotResponse.get('agentResponse'));
-            sendInAppNotification('Message Send', copilotResponse.get('agentResponse'));
-
-        } catch (Exception e) {
-            sendInAppNotification('App Error:',  e.getMessage()+e.getLineNumber());
-            System.debug('Error message ' + e.getMessage());
-            System.debug('Error Line ' + e.getLineNumber());
-        }
-    }
-
-    @HttpGet
-    global static String testing() {
-        return 'Site Working';
-    }
-
-    public static void sendWhatsAppMessage(String fromNumber, String toNumber, String message) {
-        String endpoint = TWILIO_API_BASE + '/' + TWILIO_ACCOUNT_SID + '/Messages.json';
-
-        Map<String, String> params = new Map<String, String>{
-            'From' => fromNumber,
-            'To' => toNumber,
-            'Body' => message
-        };
-
-        String requestBody = '';
-        for (String key : params.keySet()) {
-            if (!String.isEmpty(requestBody)) {
-                requestBody += '&';
-            }
-            requestBody += EncodingUtil.urlEncode(key, 'UTF-8') + '=' +
-                          EncodingUtil.urlEncode(params.get(key), 'UTF-8');
-        }
-
-        HttpRequest req = new HttpRequest();
-        req.setEndpoint(endpoint);
-        req.setMethod('POST');
-        req.setHeader('Content-Type', 'application/x-www-form-urlencoded');
-
-        String authHeader = 'Basic ' + EncodingUtil.base64Encode(
-            Blob.valueOf(TWILIO_ACCOUNT_SID + ':' + TWILIO_AUTH_TOKEN)
-        );
-        req.setHeader('Authorization', authHeader);
-        req.setBody(requestBody);
-
-        Http http = new Http();
-        HttpResponse res = http.send(req);
-
-        System.debug('Twilio API Response Status: ' + res.getStatusCode());
-        System.debug('Twilio API Response Body: ' + res.getBody());
-    }
-
-    private static Map<String, String> interactWithCopilot(String userMessage, String sessionId) {
-        Invocable.Action action = Invocable.Action.createCustomAction(
-            'generateAiAgentResponse', 'Agentforce_Service_Agent'
-        );
-
-        action.setInvocationParameter('userMessage', userMessage);
-
-        if (String.isNotBlank(sessionId)) {
-            action.setInvocationParameter('sessionId', sessionId);
-        }
-
-        List<Invocable.Action.Result> results = action.invoke();
-
-        if (!results.isEmpty() && results[0].isSuccess()) {
-            Map<String, Object> outputParams = results[0].getOutputParameters();
-            String agentResponseJson = (String) outputParams.get('agentResponse');
-
-            Map<String, Object> responseMap = (Map<String, Object>) JSON.deserializeUntyped(agentResponseJson);
-            String responseValue = (String) responseMap.get('value');
-
-            return new Map<String, String>{
-                'sessionId' => (String) outputParams.get('sessionId'),
-                'agentResponse' => responseValue
-            };
-        } else {
-            return new Map<String, String>{
-                'agentResponse' => 'Sorry, I encountered an error. Please try again.'
-            };
-        }
-    }
-
-    @future(callout=true)
-    public static void saveMediaToRecord(String mediaUrl, String contentType, String fileName, Id parentId) {
-        Http http = new Http();
-        HttpRequest req = new HttpRequest();
-        req.setEndpoint(mediaUrl);
-        req.setMethod('GET');
-
-        HttpResponse res = http.send(req);
-        Integer redirectCount = 0;
-
-        while ((res.getStatusCode() == 301 || res.getStatusCode() == 307) && redirectCount < 5) {
-            redirectCount++;
-            String redirectUrl = res.getHeader('Location');
-            req = new HttpRequest();
-            req.setEndpoint(redirectUrl);
-            req.setMethod('GET');
-            res = http.send(req);
-        }
-
-        if (res.getStatusCode() == 200) {
-            Blob mediaBlob = res.getBodyAsBlob();
-
-            Attachment attachment = new Attachment();
-            attachment.ParentId = parentId;
-            attachment.Name = fileName;
-            attachment.Body = mediaBlob;
-            attachment.ContentType = contentType;
-            insert attachment;
-
-            String cacheKey = 'session' + fromNum?.replace('whatsapp:+','');
-            Map<String, String> sessionData = (Map<String, String>) orgPart.get(cacheKey);
-            String lastUserMsg = (sessionData != null) ? sessionData.get('lastUsermsg') : null;
-
-            /*if (lastUserMsg != null && lastUserMsg.contains('aadhaar card')) {
-                ValidateDocumentController.validateDocument(
-                    EncodingUtil.base64Encode(mediaBlob), parentId, 'Aadhaar Card', attachment.Id
-                );
-            }*/
-            /*System.debug('Media attached to record successfully.');
-        } else {
-            System.debug('Final response not 200. Status: ' + res.getStatusCode());
-        }
-    }
-
-    private static String extractCustomerPhone(String message) {
-        Pattern phonePattern = Pattern.compile('\\b(?:\\+91[-\\s]?)?(\\d{10})\\b');
-        Matcher m = phonePattern.matcher(message);
-        if (m.find()) {
-            return m.group(0);
-        }
-        return null;
-    }
-
-    private static void sendInAppNotification(String title, String message) {
-
-		CustomNotificationType cnType = [SELECT Id FROM CustomNotificationType WHERE DeveloperName = 'Whatsapp_Message_Notification' WITH SYSTEM_MODE];
-
-        Messaging.CustomNotification notification = new Messaging.CustomNotification();
-        notification.setTitle(title);
-        notification.setBody(message);
-		notification.setNotificationTypeId(cnType.id);
-		notification.setTargetId('006Hu00001f7CQ2IAM');
-        notification.send(new Set<String>{ '005Hu00000RuOrPIAV' });
-    }
-}*/

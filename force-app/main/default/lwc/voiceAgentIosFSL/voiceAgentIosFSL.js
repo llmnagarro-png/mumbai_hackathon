@@ -52,24 +52,21 @@ export default class VoiceAgentIosFSL extends NavigationMixin(LightningElement) 
     _lastLangGreetings;
     _interimSilenceTimer = null;
     _partialTranscript = '';
-    useSpeechSynthesis = false; // Prefer TTS audio for iOS
+    useSpeechSynthesis = false;
     _userGestureContext = false;
 
-    // iOS Audio Context and pre-loaded audio management
     _iosAudioContext = null;
     _iosAudioBuffer = null;
     _iosAudioSource = null;
     _preloadedAudioUrls = new Map();
-    _mediaStream = null; // Track the media stream for proper cleanup
-    _voiceRecognitionRestartAttempts = 0; // Track restart attempts
-    _maxRestartAttempts = 3; // Maximum restart attempts before fallback
+    _mediaStream = null;
+    _voiceRecognitionRestartAttempts = 0;
+    _maxRestartAttempts = 3;
 
-    // iOS Screen Wake Lock management
-    _wakeLock = null; // Screen Wake Lock API
-    _wakeLockVideo = null; // Silent video element for iOS fallback
-    _wakeLockActive = false; // Track wake lock state
+    _wakeLock = null;
+    _wakeLockVideo = null;
+    _wakeLockActive = false;
 
-    // Voice commands configuration
     voiceCommands = {
         'stop soma': 'switchToChat',
         'camera on': 'activateCamera',
@@ -78,7 +75,6 @@ export default class VoiceAgentIosFSL extends NavigationMixin(LightningElement) 
         'capture': 'activateCamera'
     };
 
-    // Camera mode properties
     _cameraMode = false;
     _capturedImageData = null;
     _cameraPhoneNumber = null;
@@ -182,22 +178,17 @@ export default class VoiceAgentIosFSL extends NavigationMixin(LightningElement) 
     }
 
     connectedCallback() {
-        // iOS-specific initialization
         console.log('[VoiceAgentIOS] Initializing iOS component');
         this.logAudioContextState();
         
-        // Ensure amplitude bars start in default state
         setTimeout(() => this.resetAmplitudeBars(), 100);
         
-        // Initialize wake lock system
         this.initializeWakeLock();
         
-        // Handle page visibility changes to maintain wake lock
         this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
         document.addEventListener('visibilitychange', this.handleVisibilityChange);
     }
 
-    // Debug helper method
     logAudioContextState() {
         console.log('[VoiceAgentIOS] Audio Context State:', {
             iosAudioContext: this._iosAudioContext ? this._iosAudioContext.state : 'null',
@@ -209,14 +200,11 @@ export default class VoiceAgentIosFSL extends NavigationMixin(LightningElement) 
         });
     }
 
-    // iOS Screen Wake Lock Management
     initializeWakeLock() {
         console.log('[VoiceAgentIOS] Initializing wake lock system');
         
-        // Create silent video element for iOS fallback
         this.createSilentVideoElement();
         
-        // Check Wake Lock API support
         if ('wakeLock' in navigator) {
             console.log('[VoiceAgentIOS] Wake Lock API supported');
         } else {
@@ -226,7 +214,6 @@ export default class VoiceAgentIosFSL extends NavigationMixin(LightningElement) 
 
     createSilentVideoElement() {
         try {
-            // Create a silent, invisible video element that prevents screen sleep
             this._wakeLockVideo = document.createElement('video');
             this._wakeLockVideo.setAttribute('muted', 'true');
             this._wakeLockVideo.setAttribute('playsinline', 'true');
@@ -238,11 +225,9 @@ export default class VoiceAgentIosFSL extends NavigationMixin(LightningElement) 
             this._wakeLockVideo.style.height = '1px';
             this._wakeLockVideo.style.zIndex = '-1000';
             
-            // Create a minimal silent video data URL (1-second transparent video)
             const silentVideoDataURL = 'data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMQAAAAAtbW9vdgAAAGxtdmhkAAAAANUbgM7VG4DOwAAD6AAAACoAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAABlpb2RzAAAAABCAgIAIAE/////+/wAABZl0cmFrAAAAXHRraGQAAAAB1RuAztUbgM4AAAABAAAAAAAAAFAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAABAABAAAAABAAAAAAACIW1kaWEAAAAgbWRoZAAAAADVG4DO1RuAzgAAA+gAAACoVcQAAAAAAC5oZGxyAAAAAAAAAAB2aWRlAAAAAAAAAAAAAAAAVmlkZW9IYW5kbGVyAAAAASJtaW5mAAAAFHZtaGQAAAABAAAAAAAAAAAAAAAkZGluZgAAABxkcmVmAAAAAAAAAAEAAAAMdXJsIAAAAAEAAAAA4nN0YmwAAAB0c3RzZAAAAAAAAAABAAAAZGF2YzEAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAABAAEAEgAAABIAAAAAAAAAAEYYXZjQwFkAAv/4QAYZ//hABhnf/77y/fxy13MAAADAAEAAAMAWA==';
             this._wakeLockVideo.src = silentVideoDataURL;
             
-            // Add event listeners
             this._wakeLockVideo.addEventListener('canplay', () => {
                 console.log('[VoiceAgentIOS] Silent video ready for wake lock');
             });
@@ -266,7 +251,6 @@ export default class VoiceAgentIosFSL extends NavigationMixin(LightningElement) 
         console.log('[VoiceAgentIOS] Enabling screen wake lock for voice conversation');
         
         try {
-            // Try Wake Lock API first (modern browsers)
             if ('wakeLock' in navigator && navigator.wakeLock) {
                 this._wakeLock = await navigator.wakeLock.request('screen');
                 this._wakeLock.addEventListener('release', () => {
@@ -280,16 +264,13 @@ export default class VoiceAgentIosFSL extends NavigationMixin(LightningElement) 
             console.warn('[VoiceAgentIOS] Wake Lock API failed:', error.message);
         }
 
-        // Fallback to silent video method (iOS Safari)
         try {
             if (this._wakeLockVideo) {
-                // Add video to DOM temporarily
                 const container = this.template.querySelector('.voice-overlay') || document.body;
                 if (container && !container.contains(this._wakeLockVideo)) {
                     container.appendChild(this._wakeLockVideo);
                 }
                 
-                // Play silent video to prevent screen sleep
                 await this._wakeLockVideo.play();
                 console.log('[VoiceAgentIOS] Silent video wake lock enabled');
                 this._wakeLockActive = true;
@@ -307,7 +288,6 @@ export default class VoiceAgentIosFSL extends NavigationMixin(LightningElement) 
         console.log('[VoiceAgentIOS] Disabling screen wake lock');
 
         try {
-            // Release Wake Lock API
             if (this._wakeLock) {
                 await this._wakeLock.release();
                 this._wakeLock = null;
@@ -317,13 +297,11 @@ export default class VoiceAgentIosFSL extends NavigationMixin(LightningElement) 
             console.warn('[VoiceAgentIOS] Error releasing Wake Lock API:', error);
         }
 
-        // Stop silent video
         try {
             if (this._wakeLockVideo) {
                 this._wakeLockVideo.pause();
                 this._wakeLockVideo.currentTime = 0;
                 
-                // Remove from DOM if present
                 if (this._wakeLockVideo.parentNode) {
                     this._wakeLockVideo.parentNode.removeChild(this._wakeLockVideo);
                 }
@@ -336,17 +314,14 @@ export default class VoiceAgentIosFSL extends NavigationMixin(LightningElement) 
         this._wakeLockActive = false;
     }
 
-    // Handle page visibility changes to maintain wake lock during voice conversations
     handleVisibilityChange() {
         if (!document.hidden && this.isListeningMode && !this._wakeLockActive) {
-            // Page became visible again and we're in voice mode - re-acquire wake lock
             console.log('[VoiceAgentIOS] Page visible again, re-acquiring wake lock');
             this.enableScreenWakeLock();
         }
     }
 
     disconnectedCallback() {
-        // Remove visibility change listener
         document.removeEventListener('visibilitychange', this.handleVisibilityChange);
         
         this.stopVoiceInput();
@@ -362,19 +337,16 @@ export default class VoiceAgentIosFSL extends NavigationMixin(LightningElement) 
             this.speechKeepAliveInterval = null;
         }
 
-        // Clean up media stream
         if (this._mediaStream) {
             this._mediaStream.getTracks().forEach(track => track.stop());
             this._mediaStream = null;
         }
 
-        // Clean up screen wake lock
         this.disableScreenWakeLock();
         if (this._wakeLockVideo) {
             this._wakeLockVideo = null;
         }
 
-        // Clean up iOS audio context - only close on component destruction
         if (this._iosAudioSource) {
             try {
                 this._iosAudioSource.stop();
@@ -391,7 +363,6 @@ export default class VoiceAgentIosFSL extends NavigationMixin(LightningElement) 
         const inputEl = this.template.querySelector('.chat-input');
         const value = inputEl ? inputEl.value.trim() : (this.userInput || '').trim();
 
-        // Allow send if there is text OR a staged image
         if (!value && !this.pendingImageBase64) return;
 
         this.userInput = value;
@@ -440,8 +411,6 @@ export default class VoiceAgentIosFSL extends NavigationMixin(LightningElement) 
         this.handleOpenCamera(event);
     }
 
-    //Below New
-
     triggerFileInput() {
         const fileInput = this.template.querySelector('.file-input-hidden');
         if (fileInput) {
@@ -461,7 +430,6 @@ export default class VoiceAgentIosFSL extends NavigationMixin(LightningElement) 
         const file = event.target.files[0]; 
         console.log('Camera file Input : ',file);
         
-        // Route based on mode
         if (this._cameraMode || this.mode === 'listening') {
             this.handleCameraCaptureInVoiceMode(event);
         } else {
@@ -473,17 +441,14 @@ export default class VoiceAgentIosFSL extends NavigationMixin(LightningElement) 
         const file = event.target.files[0];
         if (!file) return;
 
-        // Validate file type — allow HEIC/HEIF (iOS native), WebP, and '' (iOS HEIC with no MIME type)
         const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/heic', 'image/heif', 'image/webp', ''];
         if (!allowedTypes.includes(file.type)) {
             this.addMessage('ai', 'Please upload an image file (JPG, PNG, HEIC, or WebP).', false);
             return;
         }
 
-        // Convert to PNG via canvas then stage — preview is also set from the PNG output
         this.compressForPending(file);
 
-        // Reset so same file can be re-selected
         event.target.value = '';
     }
 
@@ -505,7 +470,6 @@ export default class VoiceAgentIosFSL extends NavigationMixin(LightningElement) 
                 canvas.height = height;
                 canvas.getContext('2d').drawImage(img, 0, 0, width, height);
                 const compressed = canvas.toDataURL('image/png');
-                // Set preview from the PNG data URL so all formats (HEIC, JPEG, WebP) show as PNG
                 this.pendingImagePreview = compressed;
                 this.imageUrl = compressed;
                 this.pendingImageBase64 = compressed.substring(compressed.indexOf(',') + 1);
@@ -538,11 +502,9 @@ export default class VoiceAgentIosFSL extends NavigationMixin(LightningElement) 
         const base64 = this.pendingImageBase64;
         const imagePreviewSnapshot = this.pendingImagePreview;
 
-        // Clear staging and preview IMMEDIATELY
         this.pendingImageBase64 = null;
         this.pendingImagePreview = null;
 
-        // Show user message bubble with image + text right away
         this.addMessage('user', userText || '', true, null, imagePreviewSnapshot);
 
         this.isProcessing = true;
@@ -550,7 +512,6 @@ export default class VoiceAgentIosFSL extends NavigationMixin(LightningElement) 
         this.pauseRecognition();
 
         try {
-            // Step 1: Analyze the image — Apex also generates Google TTS interim audio
             const analysisResult = await analyzeImageOnly({
                 base64Image: base64,
                 contentType: 'image/png',
@@ -558,13 +519,11 @@ export default class VoiceAgentIosFSL extends NavigationMixin(LightningElement) 
                 voiceGender: this.getVoiceGender(this.selectedLanguage)
             });
 
-            // Add interim message to chat and play Google TTS (fire-and-forget, stay in Processing)
             this.addMessage('ai', analysisResult.interimMessage, false);
             if (this.mode !== 'chat' && analysisResult.interimTtsAudio) {
                 this.playBase64AudioIOSAdvanced(analysisResult.interimTtsAudio, analysisResult.interimMessage);
             }
 
-            // Step 2: Build the message and send to Agentforce (still Processing)
             const agentMessage = 'Can you please convert this JSON into a clear, concise, and human-readable customer response, presented as a short summary in a casual and natural tone: ' + analysisResult.imageJson;
 
             const result = await callAgentforce({
@@ -596,7 +555,6 @@ compressAndSend(file) {
     reader.onload = (e) => {
         const img = new Image();
         img.onload = async () => {
-            // ✅ Resize to max 800px
             const MAX_SIZE = 800;
             let width = img.width;
             let height = img.height;
@@ -620,7 +578,6 @@ compressAndSend(file) {
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, width, height);
 
-            // Convert to PNG (handles JPEG, HEIC, WebP, etc.)
             const compressedBase64 = canvas.toDataURL('image/png');
             const base64 = compressedBase64.substring(compressedBase64.indexOf(',') + 1);
 
@@ -640,12 +597,11 @@ compressAndSend(file) {
     reader.readAsDataURL(file);
 }
 
-async sendImageToAgent(base64Image, contentType) {
-    this.isProcessing = true;
-    this.pauseRecognition();
+    async sendImageToAgent(base64Image, contentType) {
+        this.isProcessing = true;
+        this.pauseRecognition();
 
-    try {
-        // Step 1: Analyze the image — Apex also generates Google TTS interim audio
+        try {
         const analysisResult = await analyzeImageOnly({
             base64Image,
             contentType,
@@ -653,13 +609,11 @@ async sendImageToAgent(base64Image, contentType) {
             voiceGender: this.getVoiceGender(this.selectedLanguage)
         });
 
-        // Add interim message to chat and play Google TTS (fire-and-forget, stay in Processing)
         this.addMessage('ai', analysisResult.interimMessage, false);
         if (this.mode !== 'chat' && analysisResult.interimTtsAudio) {
             this.playBase64AudioIOSAdvanced(analysisResult.interimTtsAudio, analysisResult.interimMessage);
         }
 
-        // Step 2: Build the message and send to Agentforce (still Processing)
         const agentMessage = 'Can you please convert this JSON into a clear, concise, and human-readable customer response, presented as a short summary in a casual and natural tone: ' + analysisResult.imageJson;
 
         const result = await callAgentforce({
@@ -675,7 +629,6 @@ async sendImageToAgent(base64Image, contentType) {
         this.lastAgentOutput = result.agentResponse;
         this.addMessage('ai', result.agentResponse, false, result.callPhoneNumber);
 
-        // Play TTS if in voice mode
         if (this.mode !== 'chat' && result.ttsAudio) {
             this.playBase64AudioIOSAdvanced(result.ttsAudio, result.agentResponse);
         }
@@ -688,30 +641,19 @@ async sendImageToAgent(base64Image, contentType) {
     }
 }
 
-    /**
-     * Activate camera mode in voice conversation
-     * User can say "camera on" to trigger this during listening mode
-     */
     activateCameraMode() {
         console.log('[VoiceAgentIOS] Activating camera mode');
         this._cameraMode = true;
         this.pauseRecognition();
-        // Note: programmatic .click() on file inputs is blocked by WKWebView security.
-        // User must tap the camera icon that is visible on the voice overlay.
         this.addMessage('ai', '📷 Tap the camera icon to take a photo, then describe it.', false);
     }
 
-    /**
-     * Handle camera capture in voice mode
-     * After photo is taken, user can continue speaking with transcript
-     */
     handleCameraCaptureInVoiceMode(event) {
         const file = event.target.files[0];
         if (!file) return;
 
         console.log('[VoiceAgentIOS] Camera capture in voice mode:', file.name);
         
-        // Validate file type — allow HEIC/HEIF (iOS native), WebP, and '' (iOS HEIC with no MIME type)
         const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/heic', 'image/heif', 'image/webp', ''];
         if (!allowedTypes.includes(file.type)) {
             this.addMessage('ai', 'Please capture an image file (JPG, PNG, HEIC, or WebP).', false);
@@ -720,12 +662,10 @@ async sendImageToAgent(base64Image, contentType) {
             return;
         }
 
-        // Store captured image
         const reader = new FileReader();
         reader.onload = (e) => {
             const img = new Image();
             img.onload = () => {
-                // Compress and store
                 const MAX_SIZE = 800;
                 let width = img.width;
                 let height = img.height;
@@ -751,37 +691,29 @@ async sendImageToAgent(base64Image, contentType) {
                 const compressedBase64 = canvas.toDataURL('image/png');
                 this._capturedImageData = compressedBase64.substring(compressedBase64.indexOf(',') + 1);
                 
-                // Stage preview in voice overlay — do NOT add to chat yet
                 this.imageUrl = compressedBase64;
                 this.pendingImagePreview = compressedBase64;
                 
                 console.log('[VoiceAgentIOS] Photo staged. Waiting for voice description...');
                 
-                // Resume voice recognition so user can describe the photo
                 this.resumeRecognition();
             };
             img.src = e.target.result;
         };
         reader.readAsDataURL(file);
         
-        // Reset file input
         event.target.value = '';
     }
 
-    /**
-     * Send captured photo with voice description to agent
-     */
     async sendImageWithVoiceDescription(voiceText) {
         if (!this._capturedImageData) {
             console.warn('[VoiceAgentIOS] No captured image data');
             return;
         }
 
-        // Snapshot before clearing
         const imageDataSnapshot = this._capturedImageData;
         const imagePreviewSnapshot = this.pendingImagePreview || this.imageUrl;
 
-        // Clear preview IMMEDIATELY so overlay hides right away
         this._cameraMode = false;
         this._capturedImageData = null;
         this.pendingImagePreview = null;
@@ -789,11 +721,9 @@ async sendImageToAgent(base64Image, contentType) {
         this.isProcessing = true;
         console.log('[VoiceAgentIOS] Sending image + voice description');
 
-        // Add user bubble with image + spoken text
         this.addMessage('user', voiceText || '', true, null, imagePreviewSnapshot);
 
         try {
-            // Step 1: Analyze the image — Apex also generates Google TTS interim audio
             const analysisResult = await analyzeImageOnly({
                 base64Image: imageDataSnapshot,
                 contentType: 'image/png',
@@ -801,13 +731,11 @@ async sendImageToAgent(base64Image, contentType) {
                 voiceGender: this.getVoiceGender(this.selectedLanguage)
             });
 
-            // Add interim message to chat and play Google TTS (fire-and-forget, stay in Processing)
             this.addMessage('ai', analysisResult.interimMessage, false);
             if (analysisResult.interimTtsAudio) {
                 this.playBase64AudioIOSAdvanced(analysisResult.interimTtsAudio, analysisResult.interimMessage);
             }
 
-            // Step 2: Build the message and send to Agentforce (still Processing)
             const agentMessage = 'Can you please convert this JSON into a clear, concise, and human-readable customer response, presented as a short summary in a casual and natural tone: ' + analysisResult.imageJson;
 
             const result = await callAgentforce({
@@ -823,7 +751,6 @@ async sendImageToAgent(base64Image, contentType) {
             this.lastAgentOutput = result.agentResponse;
             this.addMessage('ai', result.agentResponse, false, result.callPhoneNumber);
 
-            // Play TTS response
             if (result.ttsAudio) {
                 this.playBase64AudioIOSAdvanced(result.ttsAudio, result.agentResponse);
             }
@@ -836,14 +763,12 @@ async sendImageToAgent(base64Image, contentType) {
         }
     }
 
-    //Above New
     handleKeyPress(e) {
         if (e.key === 'Enter') {
             this.handleSend();
         }
     }
 
-    // Messaging functionality
     addMessage(from, text, isImage, callPhoneNumber = null, imageUrl = null) {
         const mapUrls = from === 'ai' ? this.extractMapData(text) : [];
         const linkUrls = from === 'ai' ? this.extractLinkUrls(text, mapUrls) : [];
@@ -862,19 +787,16 @@ async sendImageToAgent(base64Image, contentType) {
         this.messages = [...this.messages, message];
         this.scrollToBottom();
 
-        // Update voice overlay map cards with latest AI response
         if (from === 'ai') {
             this.voiceMapCards = mapUrls;
         }
 
-        // Handle platform-specific actions
         if (from === 'ai') {
             this.handleAIMessageActions(text, callPhoneNumber);
         }
     }
 
     handleAIMessageActions(text, callPhoneNumber) {
-        // Handle call initiation if phone number is provided
         if (callPhoneNumber || text?.toLowerCase().includes('you can now make a call') || text?.toLowerCase().includes('the call is being made')) {
             const phone = callPhoneNumber ? callPhoneNumber : '1234567890';
             console.log('[VoiceAgentIOS-FSL] Initiating phone call:', phone);
@@ -883,7 +805,6 @@ async sendImageToAgent(base64Image, contentType) {
 
     }
 
-    // Helper method to check if text contains a map URL
     containsMapUrl(text) {
         if (!text) return false;
         const mapUrlMatch = text.match(/https?:\/\/(maps\.app\.goo\.gl\/[\w\d]+)/i);
@@ -891,9 +812,7 @@ async sendImageToAgent(base64Image, contentType) {
         return mapUrlMatch && mapUrlMatch[0];
     }
 
-    // Method to open Maps app on iOS (FSL WKWebView compatible)
     openMapsApp(text) {
-        // Extract the map URL from the text
         const mapUrlMatch = text.match(/https?:\/\/(maps\.app\.goo\.gl\/[\w\d]+)/i);
         
         if (mapUrlMatch && mapUrlMatch[0]) {
@@ -902,8 +821,6 @@ async sendImageToAgent(base64Image, contentType) {
             const locationName = "Northern Blvd, New York, USA";
             const zoom = 17;
 
-            // Apple Maps URL — works best for iOS WKWebView
-            // https://maps.apple.com links are universally supported and auto-open Apple Maps on iOS
             const appleMapsUrl = `https://maps.apple.com/?ll=${latitude},${longitude}&q=${encodeURIComponent(locationName)}&z=${zoom}`;
             console.log('[VoiceAgentIOS-FSL] Opening Apple Maps via universal link:', appleMapsUrl);
             this.openExternalUrl(appleMapsUrl);
@@ -925,7 +842,6 @@ async sendImageToAgent(base64Image, contentType) {
         try {
             console.log('[VoiceAgentIOS-FSL] openExternalUrl:', url);
 
-            // Strategy 1: Invisible anchor click (works in most WKWebViews)
             const anchor = document.createElement('a');
             anchor.setAttribute('href', url);
             anchor.setAttribute('target', '_blank');
@@ -934,7 +850,6 @@ async sendImageToAgent(base64Image, contentType) {
             document.body.appendChild(anchor);
             anchor.click();
 
-            // Clean up after a tick
             setTimeout(() => {
                 if (anchor.parentNode) {
                     anchor.parentNode.removeChild(anchor);
@@ -943,7 +858,6 @@ async sendImageToAgent(base64Image, contentType) {
 
         } catch (error) {
             console.error('[VoiceAgentIOS-FSL] openExternalUrl failed:', error);
-            // Last-resort fallback: try window.open
             try {
                 window.open(url, '_blank');
             } catch (e2) {
@@ -968,7 +882,6 @@ async sendImageToAgent(base64Image, contentType) {
         console.log('[VoiceAgentIOS] Sending message in language:', this.selectedLanguage, '| Message:', userMessage);
         this.addMessage('user', userMessage, false);
 
-        // Set processing state immediately when apex call starts
         this.isProcessing = true;
         this._partialTranscript = '';
         this.voiceMapCards = []; // clear map cards when user sends next message
@@ -990,7 +903,6 @@ async sendImageToAgent(base64Image, contentType) {
             this.lastAgentOutput = result.agentResponse;
             this.addMessage('ai', result.agentResponse, false, result.callPhoneNumber);
 
-            // Play audio/speech in voice mode (Apex already strips URLs from TTS text)
             if (this.mode !== 'chat') {
                 if (!this.useSpeechSynthesis && result.ttsAudio) {
                     this.playBase64AudioIOSAdvanced(result.ttsAudio, result.agentResponse);
@@ -1011,7 +923,6 @@ async sendImageToAgent(base64Image, contentType) {
         this.mode = 'listening';
         this._userGestureContext = true;
 
-        // Clear all processing states when switching to listening
         this.isProcessing = false;
         this.isSpeaking = false;
         this._voiceRecognitionRestartAttempts = 0;
@@ -1022,21 +933,11 @@ async sendImageToAgent(base64Image, contentType) {
             this._currentAudio = null;
         }
 
-        // ═══════════════════════════════════════════════════════════════════
-        // iOS WKWebView CRITICAL: Both AudioContext creation/resume AND
-        // getUserMedia MUST be invoked SYNCHRONOUSLY in the user-gesture
-        // call stack. ANY 'await' before these calls — even for wake-lock
-        // or AudioContext.resume() — expires the gesture token, causing
-        // iOS to silently refuse AudioContext unlock and mic permission.
-        // ═══════════════════════════════════════════════════════════════════
         this.initializeIOSAudioSync();   // Unlock AudioContext (no await!)
         this.startVoiceInput();          // Fire getUserMedia  (no await!)
-        // ═══════════════════════════════════════════════════════════════════
 
-        // Non-gesture-dependent async work is safe from here on
         this.enableScreenWakeLock(); // fire-and-forget
 
-        // Ensure AudioContext is fully ready before greeting playback
         if (this._iosAudioContext && this._iosAudioContext.state === 'suspended') {
             try {
                 await this._iosAudioContext.resume();
@@ -1062,7 +963,6 @@ async sendImageToAgent(base64Image, contentType) {
                 if (this.greetingVoices[this.selectedLanguage]) {
                     this.playBase64AudioIOSAdvanced(this.greetingVoices[this.selectedLanguage], greeting);
                 } else {
-                    // Set processing state for greeting generation
                     this.isProcessing = true;
                     const result = await callAgentforce({
                         userMessage: greeting,
@@ -1096,21 +996,16 @@ async sendImageToAgent(base64Image, contentType) {
         this.stopAmplitudeDetection();
         this.resetAmplitudeBars();
 
-        // Clear camera mode state
         this._cameraMode = false;
         this._capturedImageData = null;
 
-        // Clear any staged image
         this.pendingImageBase64 = null;
         this.pendingImagePreview = null;
 
-        // Disable screen wake lock when exiting voice mode
         this.disableScreenWakeLock();
 
-        // Clear voice overlay map cards when returning to chat
         this.voiceMapCards = [];
 
-        // Component manages its own mode
     }
 
     toggleSettings() {
@@ -1157,29 +1052,24 @@ async sendImageToAgent(base64Image, contentType) {
 
     extractMapData(text) {
         if (!text) return [];
-        // Match Google Maps AND Apple Maps URLs
         const urlRegex = /https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|maps\.google\.com|google\.com\/maps|maps\.apple\.com)[^\s\])"'\n]*/g;
         const results = [];
         let match;
         let idx = 0;
 
         while ((match = urlRegex.exec(text)) !== null) {
-            // Strip trailing punctuation then tracking params
             let url = match[0].replace(/[.,;!?)[\]]+$/, '');
             let nameFromUrl = null;
             try {
                 const u = new URL(url);
-                // Apple Maps URLs carry the store name in ?name= — use it directly
                 const rawName = u.searchParams.get('name');
                 if (rawName) {
                     nameFromUrl = decodeURIComponent(rawName.replace(/\+/g, ' ')).trim();
                 }
-                // Strip tracking params
                 ['g_st', 'g_ep', 'entry', 'shorturl'].forEach(p => u.searchParams.delete(p));
                 url = u.toString();
             } catch (e) { /* keep original if URL parse fails */ }
 
-            // If the URL itself contains the name, use it and skip text scanning
             if (nameFromUrl && nameFromUrl.length >= 2) {
                 let name = nameFromUrl;
                 if (name.length > 40) {
@@ -1191,34 +1081,26 @@ async sendImageToAgent(base64Image, contentType) {
                 continue;
             }
 
-            // Look back up to 400 chars to handle cases where name is separated
-            // from the URL by an address block
             const before = text.slice(Math.max(0, match.index - 400), match.index);
             let name = `Location ${idx + 1}`;
 
-            // Strategy 1: Find ALL **bold** segments, take the last one (closest to URL)
             const allBold = [...before.matchAll(/\*\*([^*\n]{1,80})\*\*/g)];
             if (allBold.length > 0) {
                 name = allBold[allBold.length - 1][1].trim();
             } else {
-                // Strategy 2: Last numbered list item — "1. Name" or "1) Name"
                 const allNumbered = [...before.matchAll(/(?:^|\n)\s*\d+[.)]\s+([^\n]{2,80})/g)];
                 if (allNumbered.length > 0) {
                     name = allNumbered[allNumbered.length - 1][1].trim();
                 } else {
-                    // Strategy 3: Walk back through lines and pick the last
-                    // line that looks like a store name (short, no address keywords)
                     const addressKeywords = /\b(address|addr|location|directions?|navigate|map|visit|view|click|tap|open|here|floor|road|marg|nagar|lane|street|city|pin|zip|ph:|tel:|phone|shop\s*no|plot\s*no)\b/i;
                     const lines = before.split('\n').map(l => l.trim()).reverse();
                     for (const line of lines) {
-                        // Remove markdown, bullets, leading numbers
                         let candidate = line
                             .replace(/\*\*/g, '')
                             .replace(/^[-*•·\u2022\d.):\s]+/, '')
                             .replace(/[-:–—\s]+$/, '')
                             .replace(/\s+/g, ' ')
                             .trim();
-                        // Accept if: non-empty, not too long, not an address/prose line
                         if (
                             candidate.length >= 2 &&
                             candidate.length <= 60 &&
@@ -1233,10 +1115,8 @@ async sendImageToAgent(base64Image, contentType) {
                 }
             }
 
-            // Final cleanup: strip any remaining markdown, trim, cap at 40 chars
             name = name.replace(/[*_`[\]]/g, '').replace(/\s+/g, ' ').trim();
             if (name.length > 40) {
-                // Try to cut at last word boundary before 40
                 const cut = name.slice(0, 40).replace(/\s+\S*$/, '');
                 name = (cut.length > 5 ? cut : name.slice(0, 40)).trim() + '\u2026';
             }
@@ -1270,7 +1150,6 @@ async sendImageToAgent(base64Image, contentType) {
 
     openMapUrl(url) {
         console.log('[VoiceAgentIOS-FSL] openMapUrl:', url);
-        // Use NavigationMixin for standard Salesforce navigation to external URLs (maps, web pages)
         try {
             this[NavigationMixin.Navigate]({
                 type: 'standard__webPage',
@@ -1286,14 +1165,12 @@ async sendImageToAgent(base64Image, contentType) {
         if (this.voiceGenderGetter) {
             return this.voiceGenderGetter(lang);
         }
-        // Fallback
         if (lang === 'ja-JP') return 'ja-JP-Chirp3-HD-Sulafat';
         if (lang === 'de-DE') return 'de-DE-Standard-A';
         if (lang === 'hi-IN') return 'hi-IN-Chirp3-HD-Sulafat';
         return 'en-US-Chirp3-HD-Sulafat';
     }
 
-    // iOS-specific speech synthesis
     speakTextIOS(text, vol = 1, noStatus = false) {
         try {
             if (!this.speechSynthesis) {
@@ -1345,7 +1222,6 @@ async sendImageToAgent(base64Image, contentType) {
             this.ttsCurrentWordIndex = -1;
 
             utterance.onstart = () => {
-                // Set isSpeaking FIRST so recognition.onend won't restart recognition
                 this.isSpeaking = true;
                 this.pauseRecognition();
                 this.stopVoiceInput();
@@ -1364,7 +1240,6 @@ async sendImageToAgent(base64Image, contentType) {
                 this._partialTranscript = '';
                 clearTimeout(this._interimSilenceTimer);
 
-                // Restart voice input after speaking
                 setTimeout(() => {
                     if (this.isListeningMode && !this.isProcessing) {
                         this.startVoiceInput();
@@ -1383,7 +1258,6 @@ async sendImageToAgent(base64Image, contentType) {
                 this.debugMessage = `speakTextIOS: Speech Error: ${errorDetails}`;
                 this.stopTTSBlobAnimation();
 
-                // Restart voice input after error
                 setTimeout(() => {
                     if (this.isListeningMode && !this.isProcessing) {
                         this.startVoiceInput();
@@ -1414,12 +1288,10 @@ async sendImageToAgent(base64Image, contentType) {
         }
     }
 
-    // iOS-specific audio initialization
     async initializeIOSAudio() {
         try {
             console.log('[VoiceAgentIOS] Initializing audio context during user gesture');
 
-            // Only create new context if we don't have one or it's closed
             if (!this._iosAudioContext || this._iosAudioContext.state === 'closed') {
                 console.log('[VoiceAgentIOS] Creating new AudioContext');
                 this._iosAudioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -1430,7 +1302,6 @@ async sendImageToAgent(base64Image, contentType) {
                 console.log('[VoiceAgentIOS] AudioContext resumed');
             }
 
-            // Only create silent buffer if context is in running state
             if (this._iosAudioContext.state === 'running') {
                 const silentBuffer = this._iosAudioContext.createBuffer(1, 1, 22050);
                 const silentSource = this._iosAudioContext.createBufferSource();
@@ -1443,26 +1314,19 @@ async sendImageToAgent(base64Image, contentType) {
             return true;
         } catch (error) {
             console.error('[VoiceAgentIOS] Failed to initialize audio context:', error);
-            // Don't set context to null here, it might be usable later
             return false;
         }
     }
 
-    // Synchronous iOS audio init — MUST be called during user gesture.
-    // On iOS WKWebView, AudioContext created outside a gesture starts 'suspended'
-    // and cannot be resumed. This method avoids any 'await' so the gesture token
-    // is still alive when the AudioContext constructor runs.
     initializeIOSAudioSync() {
         try {
             console.log('[VoiceAgentIOS] Initializing audio context synchronously (user gesture)');
 
-            // Creating AudioContext during a user gesture → starts in 'running' on iOS
             if (!this._iosAudioContext || this._iosAudioContext.state === 'closed') {
                 console.log('[VoiceAgentIOS] Creating new AudioContext (sync)');
                 this._iosAudioContext = new (window.AudioContext || window.webkitAudioContext)();
             }
 
-            // Fire resume() without awaiting — the gesture token is consumed at call-time
             if (this._iosAudioContext.state === 'suspended') {
                 this._iosAudioContext.resume().then(() => {
                     console.log('[VoiceAgentIOS] AudioContext resumed (sync path)');
@@ -1471,7 +1335,6 @@ async sendImageToAgent(base64Image, contentType) {
                 });
             }
 
-            // Play a silent buffer to fully unlock iOS audio output
             if (this._iosAudioContext.state === 'running') {
                 const silentBuffer = this._iosAudioContext.createBuffer(1, 1, 22050);
                 const silentSource = this._iosAudioContext.createBufferSource();
@@ -1488,7 +1351,6 @@ async sendImageToAgent(base64Image, contentType) {
         }
     }
 
-    // iOS-specific audio playback
     async playBase64AudioIOSAdvanced(base64Audio, fallbackText = null) {
         console.log('[VoiceAgentIOS] Attempting advanced audio playback');
 
@@ -1501,7 +1363,6 @@ async sendImageToAgent(base64Image, contentType) {
                 return;
             }
 
-            // Try to resume context if suspended
             if (this._iosAudioContext.state === 'suspended') {
                 try {
                     await this._iosAudioContext.resume();
@@ -1538,7 +1399,6 @@ async sendImageToAgent(base64Image, contentType) {
                 this.isSpeaking = false;
                 this.stopTTSBlobAnimation();
                 this._iosAudioSource = null;
-                // Brief cooldown prevents residual TTS audio being picked up by the mic
                 setTimeout(() => {
                     this.resumeRecognition();
                 }, 500);
@@ -1556,7 +1416,6 @@ async sendImageToAgent(base64Image, contentType) {
 
             if (fallbackText) {
                 console.log('[VoiceAgentIOS] Using speech synthesis fallback');
-                this.speakTextIOS(fallbackText);
             }
         }
     }
@@ -1570,7 +1429,6 @@ async sendImageToAgent(base64Image, contentType) {
         return bytes.buffer;
     }
 
-    // iOS-specific voice input handling
     startVoiceInput() {
         if (this.recognition) {
             this.recognition.onresult = null;
@@ -1699,7 +1557,6 @@ async sendImageToAgent(base64Image, contentType) {
 
     restartVoiceRecognition() {
         if (this.recognition && !this.recognitionActive) {
-            // Check restart attempt limit
             if (this._voiceRecognitionRestartAttempts >= this._maxRestartAttempts) {
                 console.warn('[VoiceAgentIOS] Max restart attempts reached, reinitializing voice input');
                 this._voiceRecognitionRestartAttempts = 0;
@@ -1722,7 +1579,6 @@ async sendImageToAgent(base64Image, contentType) {
                 }, 100);
             } catch (error) {
                 console.error('Error restarting voice recognition:', error);
-                // If restart fails, try full reinitialization
                 this.stopVoiceInput();
                 setTimeout(() => {
                     if (this.mode === 'listening') {
@@ -1755,8 +1611,6 @@ async sendImageToAgent(base64Image, contentType) {
         this.stopAmplitudeDetection();
         this.resetAmplitudeBars();
 
-        // Don't close iOS audio context here - keep it alive for reuse
-        // Only stop the current audio source if playing
         if (this._iosAudioSource) {
             try {
                 this._iosAudioSource.stop();
@@ -1764,7 +1618,6 @@ async sendImageToAgent(base64Image, contentType) {
             this._iosAudioSource = null;
         }
 
-        // Properly clean up media stream
         if (this._mediaStream) {
             this._mediaStream.getTracks().forEach(track => track.stop());
             this._mediaStream = null;
@@ -1783,7 +1636,6 @@ async sendImageToAgent(base64Image, contentType) {
         this.isSpeaking = false;
     }
 
-    // iOS-specific result handling
     handleResult(evt) {
         if (!this.isListeningMode || this.isSpeaking || this.isProcessing) {
             this._partialTranscript = '';
@@ -1851,12 +1703,10 @@ async sendImageToAgent(base64Image, contentType) {
         }
         console.log('[VoiceAgentIOS] Recognised:', text, '| lang:', this.recognition.lang);
         
-        // If an image is staged (captured via gallery or camera in voice mode), send it with the voice transcript
         if (this._capturedImageData) {
             console.log('[VoiceAgentIOS] Staged image found: sending image with voice description');
             this.sendImageWithVoiceDescription(text);
         } else {
-            // Normal chat mode
             this.userInput = text;
             this.sendMessage();
             this.userInput = '';
@@ -1924,7 +1774,6 @@ async sendImageToAgent(base64Image, contentType) {
         }
     }
 
-    // iOS-specific amplitude detection and animation
     updateBlobAmplitude(amplitude) {
         const amplitudeBars = this.template.querySelectorAll('.amplitude-bar');
         if (amplitudeBars.length > 0) {
@@ -1932,24 +1781,19 @@ async sendImageToAgent(base64Image, contentType) {
             const minHeight = 8;
             const normalizedAmplitude = Math.min(Math.max(amplitude, 0), 1);
             
-            // Create center-out wave effect based on real amplitude
             const centerIndex = Math.floor(amplitudeBars.length / 2);
             
             amplitudeBars.forEach((bar, index) => {
-                // Distance from center creates wave effect
                 const distanceFromCenter = Math.abs(index - centerIndex);
                 const waveEffect = Math.max(0, 1 - (distanceFromCenter / centerIndex) * 0.3);
                 
-                // Add slight random variation to make it more natural
                 const randomFactor = 0.8 + (Math.random() * 0.4); // 0.8 to 1.2
                 
-                // Calculate height based on amplitude and position
                 const baseHeight = minHeight + (maxHeight - minHeight) * normalizedAmplitude * waveEffect * randomFactor;
                 const finalHeight = Math.max(minHeight, Math.min(maxHeight, baseHeight));
                 
                 bar.style.height = `${finalHeight}px`;
                 
-                // Keep bars white regardless of amplitude
                 bar.style.background = `white`;
             });
         }
@@ -1960,7 +1804,6 @@ async sendImageToAgent(base64Image, contentType) {
         if (!navigator.mediaDevices || !window.AudioContext) return;
 
         const setup = (audioStream) => {
-            // Reuse iOS audio context if available to avoid context limit issues
             if (this._iosAudioContext && this._iosAudioContext.state !== 'closed') {
                 this._audioContext = this._iosAudioContext;
             } else {
@@ -1975,13 +1818,10 @@ async sendImageToAgent(base64Image, contentType) {
             const animate = () => {
                 if (!this._analyser) return;
                 
-                // Use frequency data for better voice responsiveness
                 this._analyser.getByteFrequencyData(this._amplitudeData);
                 let sum = 0;
                 let count = 0;
                 
-                // Focus on human voice frequency range (85Hz - 3400Hz)
-                // Frequency bins roughly: 0-128 covers 0-11kHz range
                 const minBin = Math.floor((85 / 11000) * this._amplitudeData.length);
                 const maxBin = Math.floor((3400 / 11000) * this._amplitudeData.length);
                 
@@ -1992,7 +1832,6 @@ async sendImageToAgent(base64Image, contentType) {
                 
                 if (count > 0) {
                     const amplitude = sum / count;
-                    // Amplify the signal for better visual response
                     const amplifiedAmplitude = Math.min(amplitude * 2.5, 1);
                     this.updateBlobAmplitude(amplifiedAmplitude);
                 }
@@ -2015,7 +1854,6 @@ async sendImageToAgent(base64Image, contentType) {
             this._amplitudeAnimFrame = null;
         }
         if (this._audioContext && this._audioContext !== this._iosAudioContext) {
-            // Only close if it's not the shared iOS audio context
             this._audioContext.close();
         }
         this._audioContext = null;
@@ -2024,7 +1862,6 @@ async sendImageToAgent(base64Image, contentType) {
         this._amplitudeData = null;
     }
 
-    // Reset amplitude bars to default state
     resetAmplitudeBars() {
         const amplitudeBars = this.template.querySelectorAll('.amplitude-bar');
         if (amplitudeBars.length > 0) {

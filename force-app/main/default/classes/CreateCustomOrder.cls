@@ -35,7 +35,6 @@ public with sharing class CreateCustomOrder {
 
             try {
 
-                // 1. Fetch Account using Account Name
                 List<Account> accList = [
                     SELECT Id, Name 
                     FROM Account 
@@ -57,7 +56,6 @@ public with sharing class CreateCustomOrder {
 
                 Account acc = accList[0];
 
-                // 2. Get Standard Pricebook
                 Pricebook2 standardPricebook = [
                     SELECT Id 
                     FROM Pricebook2 
@@ -65,7 +63,6 @@ public with sharing class CreateCustomOrder {
                     LIMIT 1
                 ];
 
-                // 3. Create Order record (Standard Object)
                 Order ord = new Order(
                     AccountId = acc.Id,
                     Status = 'Draft',
@@ -75,7 +72,6 @@ public with sharing class CreateCustomOrder {
 
                 insert ord;
 
-                // 4. Fetch Products by Name
                 Set<String> productNames = new Set<String>();
                 for (ProductRequest p : req.products) {
                     if (p.productName != null) {
@@ -92,7 +88,6 @@ public with sharing class CreateCustomOrder {
                     productMap.put(prod.Name, prod);
                 }
 
-                // 5. Get Pricebook Entries for the products
                 Map<Id, PricebookEntry> pricebookEntryMap = new Map<Id, PricebookEntry>();
                 for (PricebookEntry pbe : [
                     SELECT Id, Product2Id, UnitPrice 
@@ -104,7 +99,6 @@ public with sharing class CreateCustomOrder {
                     pricebookEntryMap.put(pbe.Product2Id, pbe);
                 }
 
-                // 6. Create Order Items (Standard OrderItem object)
                 List<OrderItem> orderItems = new List<OrderItem>();
 
                 for (ProductRequest p : req.products) {
@@ -141,10 +135,8 @@ public with sharing class CreateCustomOrder {
                     insert orderItems;
                 }
 
-                // 7. Delivery Date
                 Date deliveryDate = Date.today().addDays(2);
                 List<Order> createdOrders = [SELECT Id, OrderNumber FROM Order WHERE Id = :ord.Id];
-                // 8. Response
                 res.orderNumber = createdOrders[0].OrderNumber;
                 res.message = 'Your order ' + createdOrders[0].OrderNumber + 
                               ' has been placed successfully and will be delivered by ' + 

@@ -3,7 +3,6 @@ public without sharing class ImageAnalyzeUtil {
     private static final String ANALYZE_API_URL = 'https://dmart-extraction.vercel.app/analyze';
     private static final String API_KEY = 'e13e50646cc067145caf2453fa42b69d297a08e123369927752875aa974acc67';
     
-    // ✅ Takes raw Blob — works for both Twilio and LWC
     public static String analyzeImage(Blob imageBlob, String contentType) {
         try {
             String boundary = '----FormBoundary7MA4YWxkTrZu0gW';
