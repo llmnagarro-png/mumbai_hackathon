@@ -827,17 +827,6 @@ compressAndSend(file) {
         }
     }
 
-    /**
-     * Open an external URL from inside FSL's WKWebView.
-     *
-     * WKWebView blocks programmatic navigation (window.location.href) to
-     * non-HTTP URL schemes (tel:, maps:, comgooglemaps://, etc.).
-     * However it DOES honour <a> link clicks — even programmatic ones —
-     * because iOS treats them as user-initiated navigations.
-     *
-     * For HTTPS universal links (https://maps.apple.com) WKWebView hands
-     * them to iOS which routes to the registered app automatically.
-     */
     openExternalUrl(url) {
         try {
             console.log('[VoiceAgentIOS-FSL] openExternalUrl:', url);
@@ -884,7 +873,7 @@ compressAndSend(file) {
 
         this.isProcessing = true;
         this._partialTranscript = '';
-        this.voiceMapCards = []; // clear map cards when user sends next message
+        this.voiceMapCards = [];
 
         this.userInput = '';
         this.pauseRecognition();
@@ -933,10 +922,10 @@ compressAndSend(file) {
             this._currentAudio = null;
         }
 
-        this.initializeIOSAudioSync();   // Unlock AudioContext (no await!)
-        this.startVoiceInput();          // Fire getUserMedia  (no await!)
+        this.initializeIOSAudioSync();
+        this.startVoiceInput();
 
-        this.enableScreenWakeLock(); // fire-and-forget
+        this.enableScreenWakeLock();
 
         if (this._iosAudioContext && this._iosAudioContext.state === 'suspended') {
             try {
@@ -1068,7 +1057,7 @@ compressAndSend(file) {
                 }
                 ['g_st', 'g_ep', 'entry', 'shorturl'].forEach(p => u.searchParams.delete(p));
                 url = u.toString();
-            } catch (e) { /* keep original if URL parse fails */ }
+            } catch (e) { }
 
             if (nameFromUrl && nameFromUrl.length >= 2) {
                 let name = nameFromUrl;
@@ -1391,7 +1380,7 @@ compressAndSend(file) {
             this._iosAudioSource.connect(this._iosAudioContext.destination);
 
             this.isSpeaking = true;
-            this.pauseRecognition(); // Stop mic while agent is speaking
+            this.pauseRecognition();
             this.startTTSBlobAnimation();
 
             this._iosAudioSource.onended = () => {
@@ -1450,7 +1439,7 @@ compressAndSend(file) {
 
             navigator.mediaDevices.getUserMedia({ audio: true })
                 .then(stream => {
-                    this._mediaStream = stream; // Track the stream for proper cleanup
+                    this._mediaStream = stream;
                     this.startAmplitudeDetection(stream);
                     if (SpeechRecognition) {
                         this.recognition = new SpeechRecognition();
@@ -1463,7 +1452,7 @@ compressAndSend(file) {
                         this.recognition.onstart = () => {
                             this.recognitionActive = true;
                             this.blobActive = true;
-                            this._voiceRecognitionRestartAttempts = 0; // Reset restart attempts on successful start
+                            this._voiceRecognitionRestartAttempts = 0;
                             console.log('[VoiceAgentIOS] Mic is now listening. Language:', this.recognition.lang);
                         };
 
@@ -1517,7 +1506,7 @@ compressAndSend(file) {
             this.recognition.onstart = () => {
                 this.recognitionActive = true;
                 this.blobActive = true;
-                this._voiceRecognitionRestartAttempts = 0; // Reset restart attempts on successful start
+                this._voiceRecognitionRestartAttempts = 0;
                 console.log('[VoiceAgentIOS] Mic is now listening. Language:', this.recognition.lang);
             };
 
@@ -1787,7 +1776,7 @@ compressAndSend(file) {
                 const distanceFromCenter = Math.abs(index - centerIndex);
                 const waveEffect = Math.max(0, 1 - (distanceFromCenter / centerIndex) * 0.3);
                 
-                const randomFactor = 0.8 + (Math.random() * 0.4); // 0.8 to 1.2
+                const randomFactor = 0.8 + (Math.random() * 0.4);
                 
                 const baseHeight = minHeight + (maxHeight - minHeight) * normalizedAmplitude * waveEffect * randomFactor;
                 const finalHeight = Math.max(minHeight, Math.min(maxHeight, baseHeight));
@@ -1826,7 +1815,7 @@ compressAndSend(file) {
                 const maxBin = Math.floor((3400 / 11000) * this._amplitudeData.length);
                 
                 for (let i = minBin; i < maxBin && i < this._amplitudeData.length; i++) {
-                    sum += this._amplitudeData[i] / 255; // Normalize to 0-1
+                    sum += this._amplitudeData[i] / 255;
                     count++;
                 }
                 
